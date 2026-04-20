@@ -1,4 +1,4 @@
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from pydantic_core.core_schema import ModelSchema
 from requests import models
 import streamlit as st
@@ -86,6 +86,8 @@ length_input = st.selectbox(
     key="length_input",
 )
 
+llm = ChatNVIDIA(model="meta/llama-3.1-70b-instruct")
+
 template = load_prompt("template.json")
 # Generate the paper prompt by filling in the template with user inputs
 prompt = template.format(
@@ -94,8 +96,7 @@ prompt = template.format(
     length_input=length_input
 )
 
-# Set up the language model
-llm = ChatGoogleGenerativeAI(model="models/gemini-2.5-flash", temperature=0.7)
+# Set up the language model is now handled above based on selection
 
 def generate_response(prompt_text: str) -> str:
     """Generate a response from the LLM given a prompt string."""
