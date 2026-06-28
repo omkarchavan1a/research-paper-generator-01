@@ -1,9 +1,8 @@
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
-from pydantic_core.core_schema import ModelSchema
-from requests import models
+from langchain_core.prompts import PromptTemplate, load_prompt
 import streamlit as st
 from dotenv import load_dotenv
-from langchain_core.prompts import PromptTemplate,load_prompt
+import os
+import requests as _requests
 
 load_dotenv()
 
@@ -86,8 +85,6 @@ length_input = st.selectbox(
     key="length_input",
 )
 
-llm = ChatNVIDIA(model="meta/llama-3.1-70b-instruct")
-
 template = load_prompt("template.json")
 # Generate the paper prompt by filling in the template with user inputs
 prompt = template.format(
@@ -96,16 +93,55 @@ prompt = template.format(
     length_input=length_input
 )
 
-# Set up the language model is now handled above based on selection
+# ---------------------------------------------------------------------------
+# Sarvam AI configuration (loaded from .env)
+# Provider: Sarvam AI  —  https://api.sarvam.ai
+# OpenAI-compatible REST API; models: sarvam-105b, sarvam-30b
+# ---------------------------------------------------------------------------
+SARVAM_API_KEY  = os.getenv("SARVAM_API_KEY", "")
+SARVAM_BASE_URL = os.getenv("SARVAM_BASE_URL", "https://api.sarvam.ai/v1")
+SARVAM_MODEL    = os.getenv("SARVAM_MODEL", "sarvam-105b")
+
 
 def generate_response(prompt_text: str) -> str:
-    """Generate a response from the LLM given a prompt string."""
-    response = llm.invoke(prompt_text)
-    # The response content can be a string or a list (for streaming outputs)
-    if isinstance(response.content, list):
-        # Concatenate all text parts if it's a list
-        return "".join(part.get("text", "") for part in response.content)
-    return response.content or ""
+    """Call Sarvam AI's OpenAI-compatible chat completions endpoint.
+
+    Sarvam's reasoning models return their thinking trace in ``reasoning_content``
+    and the final answer in ``content``.  We call the API with ``requests``
+    directly so we own the parsing logic and avoid any SDK-level content stripping.
+    """
+    url = f"{SARVAM_BASE_URL}/chat/completions"
+    headers = {
+        "api-subscription-key": SARVAM_API_KEY,
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": SARVAM_MODEL,
+        "messages": [{"role": "user", "content": prompt_text}],
+        "temperature": 0.7,
+    }
+
+    response = _requests.post(url, headers=headers, json=payload, timeout=120)
+    response.raise_for_status()
+
+    data = response.json()
+    message = data["choices"][0]["message"]
+
+    # sarvam-105b → final answer is in `content`
+    # sarvam-30b  → deep-reasoning model; final answer is in `reasoning_content`,
+    #               `content` is null
+    content = message.get("content") or ""
+    if content.strip():
+        return content
+
+    # Fallback for reasoning models: use the last paragraph of reasoning_content
+    reasoning = message.get("reasoning_content") or ""
+    if reasoning.strip():
+        paragraphs = [p.strip() for p in reasoning.strip().split("\n\n") if p.strip()]
+        return paragraphs[-1] if paragraphs else reasoning
+
+    return ""
+
 
 # Button to trigger the generation
 if st.button("Generate"):

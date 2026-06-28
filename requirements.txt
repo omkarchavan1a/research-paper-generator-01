@@ -2,12 +2,16 @@
 langchain<0.3
 langchain-core>=0.2,<0.3
 
-# OpenAI Integration
+# OpenAI-compatible Integration (used for Sarvam AI)
 langchain-openai
 openai
 
 # Anthropic Integration
 langchain-anthropic
+
+# Sarvam AI (Indian language LLMs)
+# Uses OpenAI-compatible API at https://api.sarvam.ai/v1
+# Models: sarvam-105b, sarvam-30b
 
 # Hugging Face Integration
 langchain-huggingface
@@ -17,10 +21,9 @@ huggingface-hub
 # Environment Variable Management
 python-dotenv
 
-# NVIDIA Integration
-langchain-nvidia-ai-endpoints
+# HTTP requests (for direct Sarvam AI API calls)
+requests
 
 # Machine Learning Utilities
 numpy
 scikit-learn
-
